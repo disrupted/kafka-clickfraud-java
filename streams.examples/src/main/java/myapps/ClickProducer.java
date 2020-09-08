@@ -6,6 +6,7 @@ import java.util.Locale;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -40,34 +41,36 @@ public class ClickProducer {
 
 //    final Topology topology = builder.build();
 //    final KafkaStreams streams = new KafkaStreams(topology, props);
-//    final CountDownLatch latch = new CountDownLatch(1);
+    final CountDownLatch latch = new CountDownLatch(1);
 
     Producer<String, String> producer = new KafkaProducer<>(props);
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 1000; i++) {
       Message message = new Message();
       String messageString = message.toString();
       System.out.println(messageString);
       ProducerRecord<String, String> record = new ProducerRecord<>("streams-clickcounter-input", messageString);
       producer.send(record);
       producer.flush();
+      TimeUnit.SECONDS.sleep(1);
     }
-    producer.close();
+//    producer.close();
 
     // attach shutdown handler to catch control-c
-    /* Runtime.getRuntime().addShutdownHook(new Thread("streams-shutdown-hook") {
+    Runtime.getRuntime().addShutdownHook(new Thread("streams-shutdown-hook") {
       @Override
       public void run() {
-        streams.close();
+        producer.close();
+//        streams.close();
         latch.countDown();
       }
     });
 
     try {
-      streams.start();
+//      streams.start();
       latch.await();
     } catch (Throwable e) {
       System.exit(1);
     }
-    System.exit(0); */
+    System.exit(0);
   }
 }
