@@ -1,15 +1,15 @@
 package myapps;
 
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
+import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.utils.Bytes;
 import org.apache.kafka.streams.KafkaStreams;
+import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.Topology;
@@ -20,10 +20,11 @@ import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.KeyValueMapper;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
-import org.apache.kafka.streams.kstream.Serialized;
 import org.apache.kafka.streams.state.KeyValueStore;
+import org.apache.kafka.streams.state.StreamsMetadata;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerde;
+import org.springframework.kafka.support.serializer.JsonSerializer;
 
 public class ClickCounter2 {
 
@@ -35,7 +36,7 @@ public class ClickCounter2 {
     props.put(StreamsConfig.APPLICATION_ID_CONFIG, "streams-clickcounter");
     props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
     props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-    props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, MessageSerde.class);
+    props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, MessageSerde.class); // working
 //    props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, JsonSerde.class);
 //    props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, json.getClass());
 //    props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Message.class.getName());
@@ -49,15 +50,6 @@ public class ClickCounter2 {
 //    KStream<String, String> kStream = builder.stream("streams-clickcounter-input", consumed);
 //    KStream<String, Message> transformedKStream = kStream.mapValues((key, value) -> new Message());
     KStream<String, Message> transformedKStream = builder.stream("streams-clickcounter-input", consumed).mapValues((key, value) -> new Message());
-//    transformedKStream.to("streams-clickcounter-output", produced);
-//    transformedKStream.groupBy((key, value) -> value.campId)
-    /* transformedKStream
-        .selectKey((key, value) -> value.campId)
-        .groupByKey()
-        .count()
-        .filter((key, count) -> count > 0)
-        .toStream()
-        .to("streams-clickcounter-output"); */
 
     /* transformedKStream
         .filter((key, value) -> value.isFake)
@@ -67,13 +59,44 @@ public class ClickCounter2 {
         .toStream()
         .to("streams-clickcounter-output", Produced.with(Serdes.String(), Serdes.Long())); */
 
-    transformedKStream
-        .filter((key, value) -> value.isFake)
-        .selectKey((key, value) -> value.campId)
-        .groupByKey()
-        .count()
+    KTable<String, Long> clicksPerCampaign =
+        transformedKStream
+            .selectKey((key, value) -> value.campId)
+            .groupByKey()
+            .count();
+
+    KTable<String, Long> fakeClicksPerCampaign =
+        transformedKStream
+            .filter((key, value) -> value.isFake)
+            .selectKey((key, value) -> value.campId)
+            .groupByKey()
+            .count();
+
+//    KTable<String, Pair<Long,Long>> allClicks =
+//        clicksPerCampaign.join(fakeClicksPerCampaign, (value1, value2) -> new Pair<Long,Long>(value1,value2));
+
+
+    KTable<String, Double> clickFraud = clicksPerCampaign.join(fakeClicksPerCampaign, (value1, value2) -> (double) value2 / (double) value1);
+
+//    clickFraud.toStream().foreach((campId, result) -> System.out.println("campId: " + campId+ ", clickFraud: " + result));
+
+//      KTable<String, OutputMessage> clickFraud = clicksPerCampaign.join(fakeClicksPerCampaign, (value1, value2) -> new OutputMessage(key, ((double) value2 / (double) value1)));
+    KStream<String, OutputMessage> outputMessageKStream = clickFraud
         .toStream()
-        .to("streams-clickcounter-output", Produced.with(Serdes.String(), Serdes.Long()));
+        .map((k,v) -> KeyValue.pair(k, new OutputMessage(k, v)));
+    outputMessageKStream.foreach((campaign, outputMessage) -> System.out.println(outputMessage.toString()));
+    outputMessageKStream.to("streams-clickcounter-output", Produced.with(stringSerde, new OutputMessageSerde()));
+
+
+    /* transformedKStream.foreach(new ForeachAction<String, Message>() {
+      @Override
+      public void apply(String s, Message message) {
+        clicksPerCampaign
+            .filter((key, value) -> key.equals(message.campId))
+            .toStream()
+            .to("streams-clickcounter-output", Produced.with(Serdes.String(), Serdes.Long()));
+      }
+    }); *?
 
     /* transformedKStream.foreach(new ForeachAction<String, Message>() {
       @Override
