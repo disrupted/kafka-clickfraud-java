@@ -3,14 +3,14 @@ package myapps;
 import com.google.gson.Gson;
 import java.io.Closeable;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import myapps.Message;
 import org.apache.kafka.common.serialization.Serializer;
 
 public class MessageSerializer implements Closeable, AutoCloseable, Serializer<Message> {
 
-  private static final Charset CHARSET = Charset.forName("UTF-8");
-  static private Gson gson = new Gson();
+  private static final Charset CHARSET = StandardCharsets.UTF_8;
+  static private final Gson gson = new Gson();
 
   @Override
   public void configure(Map<String, ?> map, boolean b) {

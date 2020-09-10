@@ -6,8 +6,9 @@ import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serializer;
 
 public class OutputMessageSerde implements Serde<OutputMessage> {
-  private OutputMessageSerializer serializer = new OutputMessageSerializer();
-  private OutputMessageDeserializer deserializer = new OutputMessageDeserializer();
+
+  private final OutputMessageSerializer serializer = new OutputMessageSerializer();
+  private final OutputMessageDeserializer deserializer = new OutputMessageDeserializer();
 
   @Override
   public void configure(Map<String, ?> configs, boolean isKey) {

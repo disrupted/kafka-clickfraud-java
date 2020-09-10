@@ -3,15 +3,12 @@ package myapps;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import java.io.Serializable;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.Map;
 import java.util.Random;
 import java.util.TimeZone;
 import java.util.UUID;
-import org.apache.kafka.common.header.Headers;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serializer;
@@ -20,8 +17,9 @@ import org.springframework.kafka.support.serializer.JsonSerializer;
 
 @JsonSerialize
 public class Message implements Serde {
-  private Random random = new Random();
-  private String[] campaigns = {"foo", "bar"};
+
+  private static final String[] campaigns = {"foo", "bar"};
+  private static final Random random = new Random();
   public String cookie;
   public String campId;
   public boolean isFake;
