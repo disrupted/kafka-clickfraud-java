@@ -16,12 +16,12 @@ public class OutputMessage implements Serde {
   public double clickFraud;
 
   public OutputMessage(String campaign, double clickFraud) {
+    super();
     this.campaign = campaign;
     this.clickFraud = clickFraud;
   }
 
-  @Override
-  public String toString() {
+  public String toJsonString() {
     ObjectMapper om = new ObjectMapper();
     try {
       return om.writeValueAsString(this);

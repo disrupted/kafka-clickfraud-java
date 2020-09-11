@@ -15,15 +15,20 @@ import org.apache.kafka.streams.kstream.Produced;
 
 public class ClickCounter {
 
+  private static final String KAFKA_APP_ID = "streams-clickfraud";
+  private static final String KAFKA_SERVER_HOST = "localhost:9092";
+  private static final String KAFKA_INPUT_TOPIC = KAFKA_APP_ID + "-input";
+  private static final String KAFKA_OUTPUT_TOPIC = KAFKA_APP_ID + "-output";
+
   public static void main(String[] args) throws Exception {
     Properties props = new Properties();
-    props.put(StreamsConfig.APPLICATION_ID_CONFIG, "streams-clickcounter");
-    props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+    props.put(StreamsConfig.APPLICATION_ID_CONFIG, KAFKA_APP_ID);
+    props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA_SERVER_HOST);
     props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
     props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, MessageSerde.class);
 
     final StreamsBuilder builder = new StreamsBuilder();
-    KStream<String, Message> inputMessageKStream = builder.stream("streams-clickcounter-input", Consumed.with(Serdes.String(), new MessageSerde()));
+    KStream<String, Message> inputMessageKStream = builder.stream(KAFKA_INPUT_TOPIC, Consumed.with(Serdes.String(), new MessageSerde()));
 
     KTable<String, Long> totalClickCountPerCampaign =
         inputMessageKStream
@@ -40,14 +45,15 @@ public class ClickCounter {
 
     KTable<String, Double> clickFraud =
         totalClickCountPerCampaign
-            .join(fakeClickCountPerCampaign, (fakeCount, totalCount) -> (double) fakeCount / (double) totalCount);
+            .join(fakeClickCountPerCampaign, (value1, value2) -> (double) value2 / (double) value1);
 
     KStream<String, OutputMessage> outputMessageKStream =
         clickFraud
             .toStream()
             .map((k, v) -> KeyValue.pair(k, new OutputMessage(k, v)));
-    outputMessageKStream.foreach((campaign, outputMessage) -> System.out.println(outputMessage.toString()));
-    outputMessageKStream.to("streams-clickcounter-output", Produced.with(Serdes.String(), new OutputMessageSerde()));
+    KStream<String, String> outputStringKStream = outputMessageKStream.mapValues((key, value) -> value.toJsonString());
+    outputStringKStream.foreach((campaign, outputMessage) -> System.out.println(outputMessage));
+    outputStringKStream.to(KAFKA_OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
 
     final Topology topology = builder.build();
     final KafkaStreams streams = new KafkaStreams(topology, props);

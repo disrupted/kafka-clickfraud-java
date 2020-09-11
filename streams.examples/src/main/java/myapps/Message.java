@@ -1,8 +1,5 @@
 package myapps;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -15,7 +12,6 @@ import org.apache.kafka.common.serialization.Serializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 
-@JsonSerialize
 public class Message implements Serde {
 
   private static final String[] campaigns = {"foo", "bar"};
@@ -44,17 +40,6 @@ public class Message implements Serde {
 
   private String getRandomCampaign(String[] campaigns) {
     return campaigns[random.nextInt(campaigns.length)];
-  }
-
-  @Override
-  public String toString() {
-    ObjectMapper om = new ObjectMapper();
-    try {
-      return om.writeValueAsString(this);
-    } catch (JsonProcessingException e) {
-      e.printStackTrace();
-    }
-    return null;
   }
 
   @Override
